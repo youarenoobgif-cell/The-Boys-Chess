@@ -66,12 +66,14 @@
         }
 
         function initBoard() {
-            board = Chessboard('board', {
-                draggable: true,
-                position: 'start',
-                onDrop: onDrop
-            });
-        }
+    board = Chessboard('board', {
+        draggable: true,
+        position: 'start',
+        onDrop: onDrop,
+        // This line below tells the board where to find the pieces!
+        pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
+    });
+}
     </script>
 </body>
 </html>
