@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>VOUGHT CHESS: DIABOLICAL EDITION</title>
+    <title>the boys: DIABOLICAL EDITION</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
@@ -35,7 +35,7 @@
 </head>
 <body>
 
-    <h1 id="header">VOUGHT CHESS</h1>
+    <h1 id="header">the boys CHESS</h1>
 
     <div class="game-container">
         <div id="board" class="vought-theme"></div>
@@ -102,12 +102,34 @@
         initBoard();
     };
 
-    window.changeBoardTheme = (theme) => { $('#board').attr('class', theme); };
-    window.changePieceTheme = (theme) => { 
-        pieceStyle = theme; 
-        board.destroy(); 
-        initBoard(); 
-    };
+   window.changePieceTheme = (theme) => { 
+    pieceStyle = theme; 
+    
+    // Using high-reliability Lichess assets
+    let themeURL = '';
+    
+    if (theme === 'alpha') {
+        // The Seven (Industrial Alpha style)
+        themeURL = 'https://raw.githubusercontent.com/lichess-org/lila/master/public/piece/alpha/{piece}.png';
+    } else if (theme === 'cburnett') {
+        // Vought Legacy (Classic high-res style)
+        themeURL = 'https://raw.githubusercontent.com/lichess-org/lila/master/public/piece/cburnett/{piece}.png';
+    } else {
+        // The Boys (Standard Wikipedia style)
+        themeURL = 'https://raw.githubusercontent.com/lichess-org/lila/master/public/piece/wikipedia/{piece}.png';
+    }
+
+    // Refresh the board with the new theme
+    board.destroy(); 
+    board = Chessboard('board', {
+        draggable: false,
+        position: game.fen(),
+        pieceTheme: themeURL
+    });
+    
+    // Re-bind the click listener so Tap-to-Move doesn't break
+    $('#board').on('click', '.square-55d63', onSquareClick);
+};
 
     function onSquareClick() {
         const square = $(this).attr('data-square');
