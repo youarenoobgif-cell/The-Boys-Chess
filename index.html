@@ -1,81 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>VOUGHT CHESS: DIABOLICAL EDITION</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+    <style>
+        :root { --vought-red: #b30000; --dark-bg: #050505; --panel-bg: #111; }
+        body { background: var(--dark-bg); color: white; font-family: 'Impact', sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; min-height: 100vh; }
+        #header { color: var(--vought-red); text-transform: uppercase; margin: 20px 0; letter-spacing: 3px; font-size: 2.5rem; text-shadow: 2px 2px 5px black; }
+        
+        .game-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 30px; padding: 20px; }
+        #board { width: 480px; max-width: 90vw; border: 6px solid #222; box-shadow: 0 0 30px rgba(179, 0, 0, 0.3); }
+        
+        .panel { background: var(--panel-bg); padding: 20px; border: 1px solid #333; width: 300px; box-shadow: 10px 10px 0px var(--vought-red); }
+        .controls label { display: block; font-size: 0.8rem; color: #888; margin-bottom: 5px; }
+        .controls input, .controls select { background: #000; border: 1px solid #444; color: white; padding: 10px; margin-bottom: 15px; width: 100%; box-sizing: border-box; font-family: monospace; }
+        .controls input:focus { border-color: var(--vought-red); outline: none; }
+        
+        button { background: var(--vought-red); color: white; border: none; padding: 12px; width: 100%; cursor: pointer; font-family: 'Impact'; text-transform: uppercase; font-size: 1.1rem; transition: 0.2s; }
+        button:hover { background: #ff0000; transform: scale(1.02); }
+
+        /* Board Square Themes */
+        .vought-theme .white-1e1d7 { background-color: #333333; }
+        .vought-theme .black-3c85d { background-color: #111111; }
+        .classic-theme .white-1e1d7 { background-color: #ebecd0; }
+        .classic-theme .black-3c85d { background-color: #779556; }
+        
+        .highlight-selected { box-shadow: inset 0 0 5px 5px var(--vought-red) !important; }
+        .status { margin-top: 15px; font-family: monospace; color: #aaa; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+
+    <h1 id="header">VOUGHT CHESS</h1>
+
+    <div class="game-container">
+        <div id="board" class="vought-theme"></div>
+
+        <div class="panel">
+            <div class="controls">
+                <label>OPERATION CODE</label>
+                <input type="text" id="roomInput" placeholder="e.g. COMPOUND-V">
+                <button onclick="connectToRoom()">JOIN MISSION</button>
+                
+                <div style="margin: 20px 0; border-top: 1px solid #333;"></div>
+                
+                <label>BOARD COLOR</label>
+                <select id="boardTheme" onchange="changeBoardTheme(this.value)">
+                    <option value="vought-theme">Vought Industrial</option>
+                    <option value="classic-theme">Classic Forest</option>
+                </select>
+
+                <label>PIECE FACTION</label>
+                <select id="pieceTheme" onchange="changePieceTheme(this.value)">
+                    <option value="wikipedia">The Boys (Classic)</option>
+                    <option value="alpha">The Seven (Alpha)</option>
+                    <option value="cburnett">Vought Legacy</option>
+                </select>
+            </div>
+            <div id="status" class="status">Waiting for mission start...</div>
+        </div>
+    </div>
+
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
     import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
-    // PASTE YOUR ACTUAL FIREBASE CONFIG HERE
-   const firebaseConfig = {
-  apiKey: "AIzaSyDWFWY5euuAyOz0UKRcbAccMpCu98cGoEM",
-  authDomain: "chess-theboys1.firebaseapp.com",
-  projectId: "chess-theboys1",
-  storageBucket: "chess-theboys1.firebasestorage.app",
-  messagingSenderId: "317448863706",
-  appId: "1:317448863706:web:839ac8ac53a4572b284ae3",
-  measurementId: "G-WJ6RDC4ZF2"
-};
+    const firebaseConfig = {
+        apiKey: "AIzaSyDWFWY5euuAyOz0UKRcbAccMpCu98cGoEM",
+        authDomain: "chess-theboys1.firebaseapp.com",
+        projectId: "chess-theboys1",
+        storageBucket: "chess-theboys1.firebasestorage.app",
+        messagingSenderId: "317448863706",
+        appId: "1:317448863706:web:839ac8ac53a4572b284ae3",
+        measurementId: "G-WJ6RDC4ZF2"
+    };
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    let board = null;
-    let game = new Chess();
-    let roomCode = '';
-    let sourceSquare = null; // Tracks the first tap
+    let board, game = new Chess(), roomCode = '', sourceSquare = null;
+    let pieceStyle = 'wikipedia';
 
     window.connectToRoom = function() {
         roomCode = document.getElementById('roomInput').value;
-        if(!roomCode) return alert("MISSION CODE REQUIRED.");
+        if(!roomCode) return alert("ENTER A MISSION CODE, SUPE.");
+        
+        document.getElementById('status').innerText = "Connected to: " + roomCode;
+        
         const roomRef = ref(db, 'rooms/' + roomCode);
         onValue(roomRef, (snapshot) => {
             const data = snapshot.val();
             if (data && data.fen !== game.fen()) {
                 game.load(data.fen);
                 board.position(data.fen);
+                updateStatus();
             }
         });
         initBoard();
-    }
+    };
 
-    // Handles the Tap-to-Move logic
-    function onSquareClick(square) {
-        // If we haven't picked a piece yet
+    window.changeBoardTheme = (theme) => { $('#board').attr('class', theme); };
+    window.changePieceTheme = (theme) => { 
+        pieceStyle = theme; 
+        board.destroy(); 
+        initBoard(); 
+    };
+
+    function onSquareClick() {
+        const square = $(this).attr('data-square');
+        
         if (sourceSquare === null) {
             const piece = game.get(square);
-            if (piece) {
+            if (piece && piece.color === game.turn()) {
                 sourceSquare = square;
-                // Highlight the selected square (Vought Red)
-                document.querySelector(`.square-${square}`).style.boxShadow = 'inset 0 0 10px 5px #b30000';
+                $('.square-55d63').removeClass('highlight-selected');
+                $(this).addClass('highlight-selected');
             }
-        } 
-        // If we already picked a piece, this second tap is the destination
-        else {
-            let move = game.move({
-                from: sourceSquare,
-                to: square,
-                promotion: 'q' 
-            });
+        } else {
+            const piece = game.get(sourceSquare);
+            let promotion = 'q';
+            
+            // Pawn Promotion Check
+            if (piece.type === 'p' && (square[1] === '8' || square[1] === '1')) {
+                promotion = prompt("PROMOTE TO: q (Queen), r (Rook), b (Bishop), n (Knight)", "q") || 'q';
+            }
 
-            // Clear highlight
-            document.querySelector(`.square-${sourceSquare}`).style.boxShadow = 'none';
-
+            const move = game.move({ from: sourceSquare, to: square, promotion: promotion });
+            
             if (move !== null) {
                 board.position(game.fen());
-                set(ref(db, 'rooms/' + roomCode), { fen: game.fen() });
+                set(ref(db, 'rooms/' + roomCode), { fen: game.fen(), lastMove: move });
+                updateStatus();
             }
             
-            sourceSquare = null; // Reset for next move
+            $('.square-55d63').removeClass('highlight-selected');
+            sourceSquare = null;
         }
+    }
+
+    function updateStatus() {
+        let status = '';
+        let moveColor = (game.turn() === 'b') ? 'Black (The Seven)' : 'White (The Boys)';
+
+        if (game.in_checkmate()) { status = 'Game Over. ' + moveColor + ' is dead.'; }
+        else if (game.in_draw()) { status = 'Game Over. Draw.'; }
+        else {
+            status = moveColor + ' to move';
+            if (game.in_check()) { status += ', CHECK!'; }
+        }
+        document.getElementById('status').innerText = status;
     }
 
     function initBoard() {
         board = Chessboard('board', {
-            draggable: false, // Disable dragging to force tap-to-move
-            position: 'start',
-            pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
+            draggable: false,
+            position: game.fen() || 'start',
+            pieceTheme: `https://chessboardjs.com/img/chesspieces/${pieceStyle}/{piece}.png`
         });
-
-        // Add click listeners to all squares
-        $('#board').on('click', '.square-55d63', function() {
-            const square = $(this).attr('data-square');
-            onSquareClick(square);
-        });
+        // Attach click handler to squares
+        $('#board').on('click', '.square-55d63', onSquareClick);
     }
 </script>
+</body>
+</html>
