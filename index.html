@@ -10,21 +10,23 @@
     <style>
         :root { --vought-red: #b30000; --dark-bg: #050505; --panel-bg: #111; }
         body { background: var(--dark-bg); color: white; font-family: 'Impact', sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; min-height: 100vh; padding-bottom: 40px; }
-        #header { color: var(--vought-red); text-transform: uppercase; margin: 20px 0; letter-spacing: 5px; font-size: 3rem; text-shadow: 3px 3px 0px white; }
+        #header { color: var(--vought-red); text-transform: uppercase; margin: 20px 0; letter-spacing: 5px; font-size: 3.5rem; text-shadow: 3px 3px 0px white; }
         
         .game-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; padding: 10px; }
-        #board { width: 480px; max-width: 90vw; border: 5px solid #fff; }
+        #board { width: 480px; max-width: 90vw; border: 5px solid #fff; box-shadow: 0 0 20px rgba(255,255,255,0.1); }
         
         .panel { background: var(--panel-bg); padding: 20px; border: 1px solid #333; width: 320px; box-shadow: 8px 8px 0px var(--vought-red); }
-        .controls label { display: block; font-size: 0.7rem; color: #aaa; margin-top: 10px; text-transform: uppercase; }
-        .controls input, .controls select { background: #000; border: 1px solid #444; color: white; padding: 10px; margin-bottom: 10px; width: 100%; box-sizing: border-box; font-family: sans-serif; }
+        .controls label { display: block; font-size: 0.75rem; color: #aaa; margin-top: 10px; text-transform: uppercase; }
+        .controls input, .controls select { background: #000; border: 1px solid #444; color: white; padding: 10px; margin-bottom: 10px; width: 100%; box-sizing: border-box; font-family: sans-serif; outline: none; }
+        .controls input:focus { border-color: var(--vought-red); }
         
-        .timer-box { font-size: 2rem; text-align: center; background: #000; border: 2px solid var(--vought-red); margin: 10px 0; padding: 10px; font-family: monospace; }
+        .timer-box { font-size: 2.2rem; text-align: center; background: #000; border: 2px solid var(--vought-red); margin: 10px 0; padding: 10px; font-family: 'Courier New', monospace; color: #fff; }
         
-        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 10px; }
-        button { background: var(--vought-red); color: white; border: none; padding: 12px; cursor: pointer; font-family: 'Impact'; text-transform: uppercase; transition: 0.2s; }
-        button:hover { background: white; color: black; }
-        button.secondary { background: #444; }
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+        button { background: var(--vought-red); color: white; border: none; padding: 12px; cursor: pointer; font-family: 'Impact'; text-transform: uppercase; transition: 0.2s; letter-spacing: 1px; }
+        button:hover { background: white; color: black; transform: translateY(-2px); }
+        button.secondary { background: #333; }
+        button.secondary:hover { background: #555; color: white; }
 
         /* Themes */
         .classic-theme .white-1e1d7 { background-color: #ebecd0; }
@@ -33,7 +35,7 @@
         .vought-theme .black-3c85d { background-color: #000000; }
         
         .highlight-selected { box-shadow: inset 0 0 5px 5px var(--vought-red) !important; }
-        .status-bar { background: var(--vought-red); padding: 5px; text-align: center; font-size: 0.8rem; width: 100%; margin-bottom: 10px; }
+        .status-bar { background: var(--vought-red); padding: 8px; text-align: center; font-size: 0.9rem; width: 100%; margin-bottom: 10px; letter-spacing: 1px; }
     </style>
 </head>
 <body>
@@ -42,17 +44,17 @@
 
     <div class="game-container">
         <div>
-            <div id="player-display" class="status-bar">WAITING FOR PLAYERS...</div>
+            <div id="player-display" class="status-bar">CONNECTING TO VOUGHT NETWORK...</div>
             <div id="board" class="classic-theme"></div>
         </div>
 
         <div class="panel">
             <div class="controls">
-                <label>YOUR userNAME</label>
-                <input type="text" id="playerName" placeholder="Enter Name">
+                <label>userNAME</label>
+                <input type="text" id="playerName" placeholder="e.g. BUTCHER">
                 
-                <label>room CODE</label>
-                <input type="text" id="roomInput" placeholder="Room Code">
+                <label>room CODE (ROOM)</label>
+                <input type="text" id="roomInput" placeholder="Enter Room ID">
                 
                 <button onclick="connectToRoom()">JOIN room</button>
                 
@@ -74,9 +76,9 @@
 
                 <label>PIECE FACTION</label>
                 <select onchange="changePieceTheme(this.value)">
-                    <option value="wikipedia">The Boys</option>
-                    <option value="alpha">The Seven</option>
-                    <option value="cburnett">Vought Legacy</option>
+                    <option value="wikipedia">The Boys (Wikipedia)</option>
+                    <option value="alpha">The Seven (Alpha)</option>
+                    <option value="cburnett">Vought Legacy (Cburnett)</option>
                 </select>
             </div>
         </div>
@@ -104,12 +106,12 @@
     window.connectToRoom = function() {
         roomCode = document.getElementById('roomInput').value;
         const name = document.getElementById('playerName').value || "Unknown Supe";
-        if(!roomCode) return alert("CODE REQUIRED.");
+        if(!roomCode) return alert("ENTER A MISSION CODE.");
         
         const roomRef = ref(db, 'rooms/' + roomCode);
         
-        // Register Player in Room
-        update(ref(db, 'rooms/' + roomCode + '/players'), { [name]: true });
+        // Add player name to room
+        update(ref(db, `rooms/${roomCode}/players`), { [name]: true });
 
         onValue(roomRef, (snapshot) => {
             const data = snapshot.val();
@@ -129,9 +131,11 @@
 
     window.resetGame = () => {
         if(!roomCode) return;
-        game.reset();
-        board.start();
-        set(ref(db, 'rooms/' + roomCode + '/fen'), game.fen());
+        if(confirm("Reset the mission for all players?")) {
+            game.reset();
+            board.start();
+            set(ref(db, `rooms/${roomCode}/fen`), game.fen());
+        }
     };
 
     window.startTimer = () => {
@@ -166,12 +170,15 @@
         } else {
             const p = game.get(sourceSquare);
             let prom = 'q';
-            if (p.type === 'p' && (square[1] === '8' || square[1] === '1')) prom = prompt("PROMOTE (q,r,b,n)?","q") || 'q';
+            // Proper Pawn Promotion
+            if (p && p.type === 'p' && (square[1] === '8' || square[1] === '1')) {
+                prom = prompt("PROMOTE TO: q (Queen), r (Rook), b (Bishop), n (Knight)", "q") || 'q';
+            }
             
             const move = game.move({ from: sourceSquare, to: square, promotion: prom });
             if (move !== null) {
                 board.position(game.fen());
-                update(ref(db, 'rooms/' + roomCode), { fen: game.fen() });
+                update(ref(db, `rooms/${roomCode}`), { fen: game.fen() });
             }
             $('.square-55d63').removeClass('highlight-selected');
             sourceSquare = null;
@@ -179,11 +186,17 @@
     }
 
     function initBoard() {
+        // This function ensures the pieces load correctly by forcing lowercase names
+        const pieceThemeFn = (p) => {
+            return `https://raw.githubusercontent.com/lichess-org/lila/master/public/piece/${pieceStyle}/${p.toLowerCase()}.png`;
+        };
+
         board = Chessboard('board', {
             draggable: false,
             position: game.fen() || 'start',
-            pieceTheme: `https://raw.githubusercontent.com/lichess-org/lila/master/public/piece/${pieceStyle}/{piece}.png`
+            pieceTheme: pieceThemeFn
         });
+        
         $('#board').off('click').on('click', '.square-55d63', onSquareClick);
     }
 </script>
