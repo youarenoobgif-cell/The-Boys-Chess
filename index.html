@@ -11,31 +11,22 @@
         :root { --vought-red: #b30000; --dark-bg: #050505; --panel-bg: #111; }
         body { background: var(--dark-bg); color: white; font-family: 'Impact', sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; min-height: 100vh; padding-bottom: 40px; }
         #header { color: var(--vought-red); text-transform: uppercase; margin: 20px 0; letter-spacing: 5px; font-size: 3.5rem; text-shadow: 3px 3px 0px white; }
-        
         .game-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; padding: 10px; }
-        #board { width: 480px; max-width: 90vw; border: 5px solid #fff; box-shadow: 0 0 20px rgba(255,255,255,0.1); }
-        
+        #board { width: 480px; max-width: 90vw; border: 5px solid #fff; }
         .panel { background: var(--panel-bg); padding: 20px; border: 1px solid #333; width: 320px; box-shadow: 8px 8px 0px var(--vought-red); }
         .controls label { display: block; font-size: 0.75rem; color: #aaa; margin-top: 10px; text-transform: uppercase; }
         .controls input, .controls select { background: #000; border: 1px solid #444; color: white; padding: 10px; margin-bottom: 10px; width: 100%; box-sizing: border-box; font-family: sans-serif; outline: none; }
-        .controls input:focus { border-color: var(--vought-red); }
-        
-        .timer-box { font-size: 2.2rem; text-align: center; background: #000; border: 2px solid var(--vought-red); margin: 10px 0; padding: 10px; font-family: 'Courier New', monospace; color: #fff; }
-        
+        .timer-box { font-size: 2.2rem; text-align: center; background: #000; border: 2px solid var(--vought-red); margin: 10px 0; padding: 10px; font-family: monospace; color: #fff; }
         .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
-        button { background: var(--vought-red); color: white; border: none; padding: 12px; cursor: pointer; font-family: 'Impact'; text-transform: uppercase; transition: 0.2s; letter-spacing: 1px; }
-        button:hover { background: white; color: black; transform: translateY(-2px); }
+        button { background: var(--vought-red); color: white; border: none; padding: 12px; cursor: pointer; font-family: 'Impact'; text-transform: uppercase; transition: 0.2s; }
+        button:hover { background: white; color: black; }
         button.secondary { background: #333; }
-        button.secondary:hover { background: #555; color: white; }
-
-        /* Themes */
         .classic-theme .white-1e1d7 { background-color: #ebecd0; }
         .classic-theme .black-3c85d { background-color: #779556; }
         .vought-theme .white-1e1d7 { background-color: #ffffff; }
         .vought-theme .black-3c85d { background-color: #000000; }
-        
         .highlight-selected { box-shadow: inset 0 0 5px 5px var(--vought-red) !important; }
-        .status-bar { background: var(--vought-red); padding: 8px; text-align: center; font-size: 0.9rem; width: 100%; margin-bottom: 10px; letter-spacing: 1px; }
+        .status-bar { background: var(--vought-red); padding: 8px; text-align: center; font-size: 0.9rem; width: 100%; margin-bottom: 10px; }
     </style>
 </head>
 <body>
@@ -50,14 +41,11 @@
 
         <div class="panel">
             <div class="controls">
-                <label>userNAME</label>
-                <input type="text" id="playerName" placeholder="e.g. BUTCHER">
-                
-                <label>room CODE (ROOM)</label>
-                <input type="text" id="roomInput" placeholder="Enter Room ID">
-                
-                <button onclick="connectToRoom()">JOIN room</button>
-                
+                <label>CODENAME</label>
+                <input type="text" id="playerName" placeholder="BUTCHER">
+                <label>MISSION CODE</label>
+                <input type="text" id="roomInput" placeholder="Room ID">
+                <button onclick="connectToRoom()">JOIN MISSION</button>
                 <div class="timer-box" id="timerDisplay">00:00</div>
                 <div class="btn-group">
                     <button onclick="startTimer()">START</button>
@@ -65,20 +53,11 @@
                     <button class="secondary" onclick="resetTimer()">RESET TIME</button>
                     <button class="secondary" onclick="resetGame()">RESET BOARD</button>
                 </div>
-
                 <hr style="border:0; border-top:1px solid #333; margin: 20px 0;">
-                
                 <label>BOARD COLOR</label>
                 <select onchange="changeBoardTheme(this.value)">
                     <option value="classic-theme">Classic Forest (Green)</option>
                     <option value="vought-theme">Vought Industrial (B&W)</option>
-                </select>
-
-                <label>PIECE FACTION</label>
-                <select onchange="changePieceTheme(this.value)">
-                    <option value="wikipedia">The Boys (Wikipedia)</option>
-                    <option value="alpha">The Seven (Alpha)</option>
-                    <option value="cburnett">Vought Legacy (Cburnett)</option>
                 </select>
             </div>
         </div>
@@ -100,63 +79,45 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
     let board, game = new Chess(), roomCode = '', sourceSquare = null;
-    let pieceStyle = 'wikipedia';
     let timerInterval, seconds = 0;
 
     window.connectToRoom = function() {
         roomCode = document.getElementById('roomInput').value;
         const name = document.getElementById('playerName').value || "Unknown Supe";
-        if(!roomCode) return alert("ENTER A MISSION CODE.");
-        
-        const roomRef = ref(db, 'rooms/' + roomCode);
-        
-        // Add player name to room
+        if(!roomCode) return alert("MISSION CODE REQUIRED.");
         update(ref(db, `rooms/${roomCode}/players`), { [name]: true });
-
-        onValue(roomRef, (snapshot) => {
+        onValue(ref(db, `rooms/${roomCode}`), (snapshot) => {
             const data = snapshot.val();
             if (data) {
                 if (data.fen && data.fen !== game.fen()) {
                     game.load(data.fen);
                     board.position(data.fen);
                 }
-                if (data.players) {
-                    const names = Object.keys(data.players).join(' VS ');
-                    document.getElementById('player-display').innerText = names;
-                }
+                if (data.players) document.getElementById('player-display').innerText = Object.keys(data.players).join(' VS ');
             }
         });
         initBoard();
     };
 
     window.resetGame = () => {
-        if(!roomCode) return;
-        if(confirm("Reset the mission for all players?")) {
-            game.reset();
-            board.start();
-            set(ref(db, `rooms/${roomCode}/fen`), game.fen());
-        }
+        if(!roomCode || !confirm("Reset board?")) return;
+        game.reset();
+        board.start();
+        set(ref(db, `rooms/${roomCode}/fen`), game.fen());
     };
 
     window.startTimer = () => {
         clearInterval(timerInterval);
         timerInterval = setInterval(() => {
             seconds++;
-            let m = Math.floor(seconds / 60);
-            let s = seconds % 60;
+            let m = Math.floor(seconds / 60), s = seconds % 60;
             document.getElementById('timerDisplay').innerText = `${m < 10 ? '0'+m : m}:${s < 10 ? '0'+s : s}`;
         }, 1000);
     };
 
     window.stopTimer = () => clearInterval(timerInterval);
-    window.resetTimer = () => {
-        stopTimer();
-        seconds = 0;
-        document.getElementById('timerDisplay').innerText = "00:00";
-    };
-
+    window.resetTimer = () => { stopTimer(); seconds = 0; document.getElementById('timerDisplay').innerText = "00:00"; };
     window.changeBoardTheme = (t) => $('#board').attr('class', t);
-    window.changePieceTheme = (t) => { pieceStyle = t; board.destroy(); initBoard(); };
 
     function onSquareClick() {
         const square = $(this).attr('data-square');
@@ -170,11 +131,9 @@
         } else {
             const p = game.get(sourceSquare);
             let prom = 'q';
-            // Proper Pawn Promotion
             if (p && p.type === 'p' && (square[1] === '8' || square[1] === '1')) {
-                prom = prompt("PROMOTE TO: q (Queen), r (Rook), b (Bishop), n (Knight)", "q") || 'q';
+                prom = prompt("Promote (q,r,b,n)?", "q") || 'q';
             }
-            
             const move = game.move({ from: sourceSquare, to: square, promotion: prom });
             if (move !== null) {
                 board.position(game.fen());
@@ -186,17 +145,12 @@
     }
 
     function initBoard() {
-        // This function ensures the pieces load correctly by forcing lowercase names
-        const pieceThemeFn = (p) => {
-            return `https://raw.githubusercontent.com/lichess-org/lila/master/public/piece/${pieceStyle}/${p.toLowerCase()}.png`;
-        };
-
         board = Chessboard('board', {
             draggable: false,
             position: game.fen() || 'start',
-            pieceTheme: pieceThemeFn
+            // FIXED PIECE THEME URL
+            pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
         });
-        
         $('#board').off('click').on('click', '.square-55d63', onSquareClick);
     }
 </script>
