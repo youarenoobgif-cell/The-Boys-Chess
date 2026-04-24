@@ -1,35 +1,9 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>VOUGHT INTERNATIONAL: CHESS DIVISION</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
-    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
-    <style>
-        body { background: #050505; color: #e0e0e0; font-family: 'Impact', sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; min-height: 100vh; }
-        #header { color: #b30000; letter-spacing: 2px; text-shadow: 2px 2px #000; margin-top: 20px; text-transform: uppercase; }
-        #board { width: 400px; max-width: 90vw; border: 4px solid #b30000; box-shadow: 0 0 25px #b30000; }
-        .controls { margin: 20px; display: flex; gap: 10px; }
-        input { background: #222; border: 1px solid #b30000; color: white; padding: 10px; font-family: monospace; outline: none; }
-        button { background: #b30000; color: white; border: none; padding: 10px 20px; cursor: pointer; font-family: 'Impact'; letter-spacing: 1px; }
-        button:hover { background: #ff0000; }
-    </style>
-</head>
-<body>
-    <h1 id="header">The Boys CHESS</h1>
-    <div class="controls">
-        <input type="text" id="roomInput" placeholder="ENTER MISSION CODE">
-        <button onclick="connectToRoom()">DEPLOY</button>
-    </div>
-    <div id="board"></div>
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+    import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
-
-        // PASTE YOUR FIREBASE CONFIG BOX BELOW
-        const firebaseConfig = {
+    // PASTE YOUR ACTUAL FIREBASE CONFIG HERE
+   const firebaseConfig = {
   apiKey: "AIzaSyDWFWY5euuAyOz0UKRcbAccMpCu98cGoEM",
   authDomain: "chess-theboys1.firebaseapp.com",
   projectId: "chess-theboys1",
@@ -39,41 +13,69 @@
   measurementId: "G-WJ6RDC4ZF2"
 };
 
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-        let board = null;
-        let game = new Chess();
-        let roomCode = '';
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    let board = null;
+    let game = new Chess();
+    let roomCode = '';
+    let sourceSquare = null; // Tracks the first tap
 
-        window.connectToRoom = function() {
-            roomCode = document.getElementById('roomInput').value;
-            if(!roomCode) return alert("MISSION CODE REQUIRED.");
-            const roomRef = ref(db, 'rooms/' + roomCode);
-            onValue(roomRef, (snapshot) => {
-                const data = snapshot.val();
-                if (data && data.fen !== game.fen()) {
-                    game.load(data.fen);
-                    board.position(data.fen);
-                }
+    window.connectToRoom = function() {
+        roomCode = document.getElementById('roomInput').value;
+        if(!roomCode) return alert("MISSION CODE REQUIRED.");
+        const roomRef = ref(db, 'rooms/' + roomCode);
+        onValue(roomRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data && data.fen !== game.fen()) {
+                game.load(data.fen);
+                board.position(data.fen);
+            }
+        });
+        initBoard();
+    }
+
+    // Handles the Tap-to-Move logic
+    function onSquareClick(square) {
+        // If we haven't picked a piece yet
+        if (sourceSquare === null) {
+            const piece = game.get(square);
+            if (piece) {
+                sourceSquare = square;
+                // Highlight the selected square (Vought Red)
+                document.querySelector(`.square-${square}`).style.boxShadow = 'inset 0 0 10px 5px #b30000';
+            }
+        } 
+        // If we already picked a piece, this second tap is the destination
+        else {
+            let move = game.move({
+                from: sourceSquare,
+                to: square,
+                promotion: 'q' 
             });
-            initBoard();
-        }
 
-        function onDrop(source, target) {
-            let move = game.move({ from: source, to: target, promotion: 'q' });
-            if (move === null) return 'snapback';
-            set(ref(db, 'rooms/' + roomCode), { fen: game.fen() });
-        }
+            // Clear highlight
+            document.querySelector(`.square-${sourceSquare}`).style.boxShadow = 'none';
 
-        function initBoard() {
-    board = Chessboard('board', {
-        draggable: true,
-        position: 'start',
-        onDrop: onDrop,
-        // This line below tells the board where to find the pieces!
-        pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
-    });
-}
-    </script>
-</body>
-</html>
+            if (move !== null) {
+                board.position(game.fen());
+                set(ref(db, 'rooms/' + roomCode), { fen: game.fen() });
+            }
+            
+            sourceSquare = null; // Reset for next move
+        }
+    }
+
+    function initBoard() {
+        board = Chessboard('board', {
+            draggable: false, // Disable dragging to force tap-to-move
+            position: 'start',
+            pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
+        });
+
+        // Add click listeners to all squares
+        $('#board').on('click', '.square-55d63', function() {
+            const square = $(this).attr('data-square');
+            onSquareClick(square);
+        });
+    }
+</script>
